@@ -109,6 +109,13 @@
     <div class="container">
         <div class="filters">
             <div class="filter-group">
+                <label for="mesFilter">Mes:</label>
+                <select id="mesFilter">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
                 <label for="docenteFilter">Docente:</label>
                 <select id="docenteFilter">
                     <option value="">Todos</option>
@@ -141,6 +148,7 @@
                     <th>Fecha</th>
                     <th>Docente</th>
                     <th>Componente</th>
+                    <th>Sede</th>
                     <th>Ciclo</th>
                     <th>Corporal</th>
                     <th>Técnico</th>
@@ -164,40 +172,55 @@
             document.getElementById("titulo").textContent = filas[0][1];
             document.getElementById("subtitulo").textContent = filas[0][0];
 
-            clases = filas.slice(3)
-                .map(row => ({
-                    fecha: row[0].split(" ")[0].split("/").reverse().join("-"),
-                    docente: row[1],
-                    componente: row[2],
-                    ciclo: row[4],
+            clases = filas.slice(3).map(row => {
+                const fechaRaw = row[1]?.split(" ")[0] || "";
+                const fecha = fechaRaw.split("/").reverse().join("-");
+                const mes = row[0]?.trim(); // viene en la columna 0
+                return {
+                    mes: mes,
+                    fecha: fecha,
+                    docente: row[2],
+                    componente: row[3],
+                    sede: row[4],
+                    ciclo: row[5],
                     corporal: row[6],
                     tecnico: row[7],
                     teorico: row[8],
                     obras: row[9]
-                }))
-                .filter(c => c.fecha)
-                .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+                };
+            }).filter(c => c.fecha)
+              .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
             actualizarFiltros();
             aplicarFiltros();
         }
 
         function actualizarFiltros() {
+            const mesSeleccionado = document.getElementById("mesFilter").value;
             const docenteSeleccionado = document.getElementById("docenteFilter").value;
             const componenteSeleccionado = document.getElementById("componenteFilter").value;
 
+            const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                                  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+            let meses = [...new Set(clases.map(c => c.mes).filter(Boolean))];
+            actualizarSelect("mesFilter", meses.map(m => ({
+                value: m,
+                label: nombresMeses[parseInt(m) - 1] || m
+            })));
+
             let docentes = [...new Set(clases.map(c => c.docente))];
+            actualizarSelect("docenteFilter", docentes);
+
             let componentes = [...new Set(clases
                 .filter(c => !docenteSeleccionado || c.docente === docenteSeleccionado)
                 .map(c => c.componente))];
+            actualizarSelect("componenteFilter", componentes);
 
             let ciclos = [...new Set(clases
                 .filter(c => (!docenteSeleccionado || c.docente === docenteSeleccionado) &&
                              (!componenteSeleccionado || c.componente === componenteSeleccionado))
                 .map(c => c.ciclo))];
-
-            actualizarSelect("docenteFilter", docentes);
-            actualizarSelect("componenteFilter", componentes);
             actualizarSelect("cicloFilter", ciclos);
         }
 
@@ -205,16 +228,18 @@
             const select = document.getElementById(id);
             const valorSeleccionado = select.value;
             select.innerHTML = '<option value="">Todos</option>';
-            valores.forEach(valor => {
-                if (valor) {
-                    const option = document.createElement("option");
-                    option.value = valor;
-                    option.textContent = valor;
-                    select.appendChild(option);
+            valores.forEach(v => {
+                const option = document.createElement("option");
+                if (typeof v === "object") {
+                    option.value = v.value;
+                    option.textContent = v.label;
+                } else {
+                    option.value = v;
+                    option.textContent = v;
                 }
+                select.appendChild(option);
             });
-
-            if (valores.includes(valorSeleccionado)) {
+            if (valores.some(v => (typeof v === "object" ? v.value : v) === valorSeleccionado)) {
                 select.value = valorSeleccionado;
             } else {
                 select.value = "";
@@ -222,6 +247,7 @@
         }
 
         function aplicarFiltros() {
+            const mes = document.getElementById("mesFilter").value;
             const docente = document.getElementById("docenteFilter").value;
             const componente = document.getElementById("componenteFilter").value;
             const ciclo = document.getElementById("cicloFilter").value;
@@ -233,14 +259,24 @@
             tableBody.innerHTML = "";
 
             clases.filter(c =>
+                (!mes || c.mes === mes) &&
                 (!docente || c.docente === docente) &&
                 (!componente || c.componente === componente) &&
                 (!ciclo || c.ciclo === ciclo) &&
                 (!fecha || c.fecha === fecha)
             ).forEach(c => {
                 let row = document.createElement("tr");
-                row.innerHTML = `<td>${c.fecha}</td><td>${c.docente}</td><td>${c.componente}</td><td>${c.ciclo}</td>
-                <td>${c.corporal}</td><td>${c.tecnico}</td><td>${c.teorico}</td><td>${c.obras}</td>`;
+                row.innerHTML = `
+                    <td>${c.fecha}</td>
+                    <td>${c.docente}</td>
+                    <td>${c.componente}</td>
+                    <td>${c.sede}</td>
+                    <td>${c.ciclo}</td>
+                    <td>${c.corporal}</td>
+                    <td>${c.tecnico}</td>
+                    <td>${c.teorico}</td>
+                    <td>${c.obras}</td>
+                `;
                 tableBody.appendChild(row);
             });
         }
